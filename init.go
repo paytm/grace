@@ -5,9 +5,9 @@ import (
  "net/http"
  "log"
  "strconv"
+ "time"
  "os"
- "os/signal"
- "syscall"
+ graceful "gopkg.in/tylerb/graceful.v1"
 )
 
 func Serve(hport string, handler http.Handler) (error) {
@@ -34,18 +34,13 @@ func Serve(hport string, handler http.Handler) (error) {
     }
   }
 
-  c:= make(chan os.Signal, 1)
-  signal.Notify(c, syscall.SIGTERM) // listen for term
-  go sigHandler(c,l)
-  // TODO: Create a new server and call serve on it instead of 
-  // http.Serve, setting connstate to enable really graceful shutdown
-  return http.Serve(l,handler)
-}
+  srv := &graceful.Server{ 
+	  Timeout: 10*time.Second, 
+          Server: &http.Server{
+	    Handler: handler,
+          },
+        }
 
-func sigHandler(c chan os.Signal, l net.Listener) {
-  // Block until a signal is received.
-  for _ = range c {
-    log.Println("Terminating on SIGTERM", os.Getpid())
-    l.Close() // FIXME: do via connstate
-  }
+  log.Println("starting serve on fd ",fd)
+  return srv.Serve(l)
 }
